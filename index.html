@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestor de Inventario de Videojuegos Personal</title>
+  <link rel="stylesheet" crossorigin href="/assets/index-BCjDoH_t.css">
+</head>
+<body>
+  <div id="app" class="container">
+    <!-- header (etiqueta 1 semántica) -->
+    <header>
+      <h1>Gestor de Inventario de Videojuegos</h1>
+    </header>
+
+    <main>
+      <!-- section (etiqueta 2) formulario -->
+      <section class="card">
+        <h2>Agregar juego</h2>
+        <form @submit.prevent="agregarJuego">
+          <label>
+            Nombre:
+            <!-- v-model en input -->
+            <input v-model="nuevoJuego.nombre" type="text" placeholder="Nombre del videojuego" />
+          </label>
+          <label>
+            Plataforma:
+            <!-- v-model en select -->
+            <select v-model="nuevoJuego.plataforma">
+              <option value="">-- Selecciona plataforma --</option>
+              <option value="Nintendo">Nintendo</option>
+              <option value="PlayStation">PlayStation</option>
+              <option value="Xbox">Xbox</option>
+              <option value="PC">PC</option>
+              <option value="Switch">Switch</option>
+            </select>
+          </label>
+
+          <!-- v-if para validar y mostrar error -->
+          <p class="error" v-if="mensajeError">{{ mensajeError }}</p>
+
+          <button type="submit">Agregar juego</button>
+        </form>
+      </section>
+
+      <!-- section (etiqueta 3) lista de juegos -->
+      <section class="card">
+        <h2>Inventario</h2>
+
+        <label>
+          Buscar juego:
+          <input v-model="filtroBusqueda" type="text" placeholder="Filtrar por nombre o plataforma" />
+        </label>
+
+        <p>Total de juegos: {{ totalJuegos }}</p>
+
+      <button v-if="deletedJuegos.length > 0" @click="recuperarJuego" class="btn-restore">
+        Recuperar último juego eliminado ({{ deletedJuegos.length }} disponible{{ deletedJuegos.length === 1 ? '' : 's' }})
+      </button>
+
+        <!-- v-if para lista vacía -->
+        <p v-if="juegosFiltrados.length === 0" class="empty">No hay juegos para mostrar.</p>
+
+        <!-- table (etiqueta 4) con v-for -->
+        <table v-if="juegosFiltrados.length > 0">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Nombre</th>
+              <th>Plataforma</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(juego, index) in juegosFiltrados" :key="juego.id">
+              <td>{{ index + 1 }}</td>
+              <td>{{ juego.nombre }}</td>
+              <td>
+                <!-- v-bind para estilo dinámico según plataforma -->
+                <span :style="{ color: colorPlataforma(juego.plataforma), fontWeight: 'bold' }">
+                  {{ juego.plataforma }}
+                </span>
+              </td>
+              <td>
+                <button class="btn-delete" @click="eliminarJuego(juego.id)">Eliminar</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+
+    <!-- footer (etiqueta 5 semántica) -->
+    <footer>
+      <p>Made in china / perusalen</p>
+    </footer>
+  </div>
+
+  <!-- Vue 3 CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          // 5 variables reactivas
+          listaJuegos: [],
+          nuevoJuego: { nombre: '', plataforma: '' },
+          mensajeError: '',
+          filtroBusqueda: '',
+          deletedJuegos: []
+        };
+      },
+      computed: {
+        totalJuegos() {
+          return this.listaJuegos.length;
+        },
+        juegosFiltrados() {
+          const termino = this.filtroBusqueda.trim().toLowerCase();
+          if (!termino) return this.listaJuegos;
+          return this.listaJuegos.filter(juego =>
+            juego.nombre.toLowerCase().includes(termino) ||
+            juego.plataforma.toLowerCase().includes(termino)
+          );
+        }
+      },
+      created() {
+        const almacen = localStorage.getItem('listaJuegos');
+        if (almacen) {
+          try {
+            this.listaJuegos = JSON.parse(almacen);
+          } catch (e) {
+            this.listaJuegos = [];
+          }
+        }
+      },
+      watch: {
+        listaJuegos: {
+          handler(nuevo) {
+            localStorage.setItem('listaJuegos', JSON.stringify(nuevo));
+          },
+          deep: true
+        }
+      },
+      methods: {
+        agregarJuego() {
+          const nombre = this.nuevoJuego.nombre.trim();
+          const plataforma = this.nuevoJuego.plataforma;
+
+          if (!nombre) {
+            this.mensajeError = 'El nombre del juego es obligatorio.';
+            return;
+          }
+          if (!plataforma) {
+            this.mensajeError = 'Debes seleccionar una plataforma.';
+            return;
+          }
+
+          // Validar duplicado nombre + plataforma exactamente igual
+          const existeDuplicado = this.listaJuegos.some(juego =>
+            juego.nombre.toLowerCase() === nombre.toLowerCase() &&
+            juego.plataforma === plataforma
+          );
+
+          if (existeDuplicado) {
+            this.mensajeError = `El juego "${nombre}" ya existe para ${plataforma}. Intenta con otro título o plataforma.`;
+            return;
+          }
+
+          this.listaJuegos.push({
+            id: Date.now(),
+            nombre,
+            plataforma
+          });
+
+          this.nuevoJuego.nombre = '';
+          this.nuevoJuego.plataforma = '';
+          this.mensajeError = '';
+        },
+        eliminarJuego(id) {
+          const index = this.listaJuegos.findIndex(juego => juego.id === id);
+          if (index !== -1) {
+            this.deletedJuegos.push(this.listaJuegos[index]);
+            this.listaJuegos.splice(index, 1);
+          }
+        },
+        recuperarJuego() {
+          if (this.deletedJuegos.length === 0) return;
+          const juegoARecuperar = this.deletedJuegos.pop();
+          this.listaJuegos.push({ ...juegoARecuperar, id: Date.now() });
+          this.mensajeError = '';
+        },
+        colorPlataforma(plataforma) {
+          const colores = {
+            Nintendo: '#bf4fff',
+            PlayStation: '#4f46e5',
+            Xbox: '#0f172a',
+            PC: '#1e3a8a',
+            Switch: '#7c3aed'
+          };
+          return colores[plataforma] || '#94a3b8';
+        }
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
